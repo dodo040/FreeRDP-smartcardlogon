@@ -1,0 +1,227 @@
+#!/bin/bash
+
+KRB5CONFIG=$(which krb5-config)
+KRB5PREFIX=$(($KRB5CONFIG --prefix) 2>&1)
+KRB5VENDOR=$(($KRB5CONFIG --vendor) 2>&1)
+SUPPLY_USR_HEIMDAL_PATH="false"
+  
+set_krb_flavour(){
+  if [[ $2 = "" ]]; then
+    ANSWER=no
+    while ! [[ $ANSWER =~ [Y|y] ]] && ! [[ $ANSWER =~ [Y|y]es ]] && ! [[ $ANSWER = "" ]]
+    do
+      read -p "Please specify prefix directory of your $1 installation : " YOURPREFIX
+      if ! [ -d "$YOURPREFIX" ]; then
+        echo "The directory $YOURPREFIX does not exist. Try another one."
+        continue
+      fi
+      echo "You entered : $YOURPREFIX. OK ? [Y/n]"
+      read ANSWER
+    done
+    SHAVED_PREFIX_DIR=`echo -e "$YOURPREFIX" | sed -e 's/\/$//'`
+    NEW_PATH=$SHAVED_PREFIX_DIR/bin:$PATH
+    check_path $NEW_PATH
+    export PATH=$NEW_PATH
+  else
+    SHAVED_PREFIX_DIR=`echo -e "$2" | sed -e 's/\/$//'`
+    NEW_PATH=$SHAVED_PREFIX_DIR/bin:$PATH
+    check_path $NEW_PATH
+    export PATH=$NEW_PATH
+  fi
+}
+
+delete_heimdal_path(){
+  ORIGIN_PATH=$PATH
+  CURRENT_PATH=$PATH
+
+  while true
+  do
+    HEIMDAL_PATH=`echo ${CURRENT_PATH%%:*}`
+    CURRENT_PATH=`echo ${CURRENT_PATH#*:}`
+    if [[ $HEIMDAL_PATH =~ [H|h]eimdal ]] && ! [[ $CURRENT_PATH =~ [H|h]eimdal ]]; then
+      break
+    fi
+  done
+
+  NEW_PATH=`echo ${ORIGIN_PATH/$HEIMDAL_PATH:/}`
+}
+
+check_path(){
+  ORIGIN_GLOBAL_PATH=$1
+  CURRENT_GLOBAL_PATH=$1
+  PATH_CHECKED=
+  LAST_ROUND="false"
+
+  # delete duplicated paths in env var PATH to avoid
+  # to add already existing one while configuring Kerberos flavour
+  while true
+  do
+    if [[ $PATH_CHECKED = "" ]]; then
+      PATH_TO_CHECK=`echo ${ORIGIN_GLOBAL_PATH%%:*}`
+      CURRENT_GLOBAL_PATH_TO_TEST=`echo ${ORIGIN_GLOBAL_PATH#*:}`
+    else
+      PATH_TO_CHECK=`echo ${CURRENT_GLOBAL_PATH_TO_TEST%%:*}`
+      PATH_CHECKED=$PATH_CHECKED:$PATH_TO_CHECK
+    fi
+    
+    NEXT_CURRENT_GLOBAL_PATH_TO_TEST=`echo ${CURRENT_GLOBAL_PATH_TO_TEST#*:}`
+    if [[ $NEXT_CURRENT_GLOBAL_PATH_TO_TEST == *"$PATH_TO_CHECK"* ]]; then
+      CURRENT_GLOBAL_PATH_TO_TEST=`echo ${CURRENT_GLOBAL_PATH_TO_TEST//$PATH_TO_CHECK:/}`
+      if [[ $PATH_CHECKED = "" ]]; then 
+        PATH_CHECKED=$PATH_TO_CHECK
+      fi
+    else
+      if [[ $PATH_CHECKED = "" ]]; then 
+        PATH_CHECKED=$PATH_TO_CHECK
+        CURRENT_GLOBAL_PATH_TO_TEST=$CURRENT_GLOBAL_PATH_TO_TEST
+      elif [ $LAST_ROUND = "false" ]; then
+        CURRENT_GLOBAL_PATH_TO_TEST=$NEXT_CURRENT_GLOBAL_PATH_TO_TEST
+      fi
+    fi
+    
+    if [ $LAST_ROUND = "true" ]; then
+      break
+    fi
+
+    PATH_LEFT="${CURRENT_GLOBAL_PATH_TO_TEST//[^:]}"
+    PATH_LEFT_COUNT=${#PATH_LEFT}
+
+    if [ "$PATH_LEFT_COUNT" = 0 ]; then
+      KEEP_PATH=`echo ${KEEP_PATH//:$CURRENT_GLOBAL_PATH_TO_TEST/}`
+      KEEP_PATH=$KEEP_PATH:$CURRENT_GLOBAL_PATH_TO_TEST
+      LAST_ROUND="true"
+      break
+    fi
+    
+    if [ $LAST_ROUND = "false" ]; then
+      KEEP_PATH=$PATH_CHECKED:$CURRENT_GLOBAL_PATH_TO_TEST
+    fi
+  done
+
+  NEW_PATH=$KEEP_PATH
+}
+
+if [ "$1" = "Heimdal" ]; then
+  if ! [[ $PATH =~ [H|h]eimdal ]]; then
+    # Heimdal is not set in path(*). Here we are supposed to be in a \case
+    # where MIT is installed and running over Heimdal (unless Heimdal is being
+    # installed in a non-default directory, so no "heimdal" string presents
+    # in env var PATH).
+    # We set it by default to the default installation of Heimdal (/usr/heimdal).
+    # If you want an other path please specify KRB_INSTALLED_PREFIX.
+    # (*) Note in the particular \case where Heimdal is already set,
+    # the Heimdal path is one of the default existing paths.
+    if [[ $2 = "" ]]; then
+      if [[ $KRB5VENDOR =~ [H|h]eimdal$ ]] && [ "$FORCE_INSTALL" = "false" ]; then
+        echo "Heimdal is already being set as Kerberos flavour"
+        MESSAGE="true"
+      elif [ "$SUPPLY_USR_HEIMDAL_PATH" = "false" ]; then
+        if ! [ -d "/usr/heimdal" ]; then
+          echo "The directory /usr/heimdal does not exist. Try another one."
+          set_krb_flavour Heimdal
+        else
+          export PATH=/usr/heimdal/bin:$PATH
+          SUPPLY_USR_HEIMDAL_PATH="true"
+        fi
+      else
+        set_krb_flavour Heimdal
+      fi
+    else
+      if [[ $KRB5VENDOR =~ [H|h]eimdal$ ]] && [ "$FORCE_INSTALL" = "false" ]; then
+        echo "Heimdal is already being set as Kerberos flavour"
+        MESSAGE="true"
+      else
+        if ! [ -d "$2" ]; then
+          echo "The directory $2 does not exist. Try another one."
+          set_krb_flavour Heimdal
+        else
+          SHAVED_PREFIX_DIR=`echo -e "$2" | sed -e 's/\/$//'`
+          NEW_PATH=$SHAVED_PREFIX_DIR/bin:$PATH
+          check_path $NEW_PATH
+          export PATH=$NEW_PATH
+        fi
+      fi
+    fi
+  else
+    # delete Heimdal in PATH and export PATH with Heimdal
+    # to ensure Heimdal is first Kerberos in PATH
+    delete_heimdal_path    
+    if ! [[ $2 = "" ]]; then
+      if [ "$CHECK_VERSION" = "true" ]; then
+        echo "Heimdal is already being set as Kerberos flavour"
+        MESSAGE="true"
+      else
+        if ! [ -d "$2" ]; then
+          echo "The directory $2 does not exist. Try another one."
+          set_krb_flavour Heimdal
+        else
+          SHAVED_PREFIX_DIR=`echo -e "$2" | sed -e 's/\/$//'`
+          NEW_PATH=$SHAVED_PREFIX_DIR/bin:$NEW_PATH
+          check_path $NEW_PATH
+          export PATH=$NEW_PATH
+        fi
+      fi
+    else
+      if [[ $KRB5VENDOR =~ [H|h]eimdal$ ]] && [ "$FORCE_INSTALL" = "false" ]; then
+        echo "Heimdal is already being set as Kerberos flavour"
+        MESSAGE="true"
+        NEW_PATH=$KRB5PREFIX/bin:$NEW_PATH
+        check_path $NEW_PATH
+        export PATH=$NEW_PATH
+      else
+        ANSWER=no
+        while ! [[ $ANSWER =~ [Y|y] ]] && ! [[ $ANSWER =~ [Y|y]es ]] && ! [[ $ANSWER = "" ]]
+        do
+          read -p "Please specify prefix directory of your Heimdal installation : " YOURPREFIX
+          if ! [ -d "$YOURPREFIX" ]; then
+            echo "The directory $YOURPREFIX does not exist. Try another one."
+            continue
+          fi
+          echo "You entered : $YOURPREFIX. OK ? [Y/n]"
+          read ANSWER
+        done
+        SHAVED_PREFIX_DIR=`echo -e "$YOURPREFIX" | sed -e 's/\/$//'`
+        NEW_PATH=$SHAVED_PREFIX_DIR/bin:$NEW_PATH
+        check_path $NEW_PATH
+        export PATH=$NEW_PATH
+      fi
+    fi
+  fi
+else
+  if [[ $KRB5CONFIG =~ [H|h]eimdal ]]; then
+    delete_heimdal_path    
+    if [[ $FORCE_INSTALL = "true" ]]; then
+      set_krb_flavour MIT $3
+    else
+      check_path $NEW_PATH
+      export PATH=$NEW_PATH
+    fi
+  else
+     if [[ $KRB5VENDOR =~ [H|h]eimdal$ ]]; then
+	set_krb_flavour MIT $3
+     else
+       if [ "$FORCE_INSTALL" = "false" ]; then
+	 if [[ $PATH =~ [H|h]eimdal ]]; then
+           delete_heimdal_path
+           export PATH=$NEW_PATH
+         fi
+	 if [ "$CHECK_VERSION" = "false" ]; then
+           if ! [[ $3 = "" ]]; then 
+             echo "Trying again with prefix $3 ..."
+           fi
+           set_krb_flavour MIT $3
+         else
+           echo "MIT is already being set as Kerberos flavour"
+           MESSAGE="true"
+         fi
+       else
+	 if [ "$CHECK_VERSION" = "false" ]; then
+           set_krb_flavour MIT $3
+         else
+           echo "MIT is already being set as Kerberos flavour"
+           MESSAGE="true"
+         fi
+       fi
+     fi
+  fi
+fi

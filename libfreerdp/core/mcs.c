@@ -51,13 +51,13 @@
  * 	callingDomainSelector		OCTET_STRING,
  * 	calledDomainSelector		OCTET_STRING,
  * 	upwardFlag			BOOLEAN,
- * 	targetParameters		DomainParameters,
- * 	minimumParameters		DomainParameters,
- * 	maximumParameters		DomainParameters,
+ * 	targetParameters		DomainParametersMCS,
+ * 	minimumParameters		DomainParametersMCS,
+ * 	maximumParameters		DomainParametersMCS,
  * 	userData			OCTET_STRING
  * }
  *
- * DomainParameters ::= SEQUENCE
+ * DomainParametersMCS ::= SEQUENCE
  * {
  * 	maxChannelIds			INTEGER (0..MAX),
  * 	maxUserIds			INTEGER (0..MAX),
@@ -73,7 +73,7 @@
  * {
  * 	result				Result,
  * 	calledConnectId			INTEGER (0..MAX),
- * 	domainParameters		DomainParameters,
+ * 	domainParameters		DomainParametersMCS,
  * 	userData			OCTET_STRING
  * }
  *
@@ -275,7 +275,7 @@ void mcs_write_domain_mcspdu_header(wStream* s, enum DomainMCSPDU domainMCSPDU, 
  * @param maxMCSPDUsize max MCS PDU size
  */
 
-static BOOL mcs_init_domain_parameters(DomainParameters* domainParameters,
+static BOOL mcs_init_domain_parameters(DomainParametersMCS* domainParameters,
                                        UINT32 maxChannelIds, UINT32 maxUserIds, UINT32 maxTokenIds, UINT32 maxMCSPDUsize)
 {
 	if (!domainParameters)
@@ -298,7 +298,7 @@ static BOOL mcs_init_domain_parameters(DomainParameters* domainParameters,
  * @param domainParameters domain parameters
  */
 
-static BOOL mcs_read_domain_parameters(wStream* s, DomainParameters* domainParameters)
+static BOOL mcs_read_domain_parameters(wStream* s, DomainParametersMCS* domainParameters)
 {
 	int length;
 
@@ -323,7 +323,7 @@ static BOOL mcs_read_domain_parameters(wStream* s, DomainParameters* domainParam
  * @param domainParameters domain parameters
  */
 
-static BOOL mcs_write_domain_parameters(wStream* s, DomainParameters* domainParameters)
+static BOOL mcs_write_domain_parameters(wStream* s, DomainParametersMCS* domainParameters)
 {
 	int length;
 	wStream* tmps;
@@ -360,9 +360,9 @@ static BOOL mcs_write_domain_parameters(wStream* s, DomainParameters* domainPara
  * @param domainParameters domain parameters
  */
 
-static void mcs_print_domain_parameters(DomainParameters* domainParameters)
+static void mcs_print_domain_parameters(DomainParametersMCS* domainParameters)
 {
-	WLog_INFO(TAG,  "DomainParameters {");
+	WLog_INFO(TAG,  "DomainParametersMCS {");
 
 	if (domainParameters)
 	{
@@ -390,9 +390,9 @@ static void mcs_print_domain_parameters(DomainParameters* domainParameters)
  * @param domainParameters output parameters
  */
 
-BOOL mcs_merge_domain_parameters(DomainParameters* targetParameters,
-                                 DomainParameters* minimumParameters,
-                                 DomainParameters* maximumParameters, DomainParameters* pOutParameters)
+BOOL mcs_merge_domain_parameters(DomainParametersMCS* targetParameters,
+                                 DomainParametersMCS* minimumParameters,
+                                 DomainParametersMCS* maximumParameters, DomainParametersMCS* pOutParameters)
 {
 	/* maxChannelIds */
 	if (!targetParameters || !minimumParameters || !maximumParameters || !pOutParameters)
@@ -540,15 +540,15 @@ BOOL mcs_recv_connect_initial(rdpMcs* mcs, wStream* s)
 	if (!ber_read_BOOL(s, &upwardFlag))
 		return FALSE;
 
-	/* targetParameters (DomainParameters) */
+	/* targetParameters (DomainParametersMCS) */
 	if (!mcs_read_domain_parameters(s, &mcs->targetParameters))
 		return FALSE;
 
-	/* minimumParameters (DomainParameters) */
+	/* minimumParameters (DomainParametersMCS) */
 	if (!mcs_read_domain_parameters(s, &mcs->minimumParameters))
 		return FALSE;
 
-	/* maximumParameters (DomainParameters) */
+	/* maximumParameters (DomainParametersMCS) */
 	if (!mcs_read_domain_parameters(s, &mcs->maximumParameters))
 		return FALSE;
 
@@ -597,15 +597,15 @@ BOOL mcs_write_connect_initial(wStream* s, rdpMcs* mcs, wStream* userData)
 	/* upwardFlag (BOOLEAN) */
 	ber_write_BOOL(tmps, TRUE);
 
-	/* targetParameters (DomainParameters) */
+	/* targetParameters (DomainParametersMCS) */
 	if (!mcs_write_domain_parameters(tmps, &mcs->targetParameters))
 		goto out;
 
-	/* minimumParameters (DomainParameters) */
+	/* minimumParameters (DomainParametersMCS) */
 	if (!mcs_write_domain_parameters(tmps, &mcs->minimumParameters))
 		goto out;
 
-	/* maximumParameters (DomainParameters) */
+	/* maximumParameters (DomainParametersMCS) */
 	if (!mcs_write_domain_parameters(tmps, &mcs->maximumParameters))
 		goto out;
 

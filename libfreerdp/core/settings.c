@@ -610,6 +610,12 @@ rdpSettings* freerdp_settings_new(DWORD flags)
 		goto out_fail;
 
 	settings->ActionScript = _strdup("~/.config/freerdp/action.sh");
+	/* smartcard authentication */
+	settings->SmartcardLogon = FALSE;
+	settings->Pkcs11Module = NULL;
+	settings->CredentialsType = SEC_DEFAULT_DELEGATION_CRED_TYPE;
+	settings->Pin = NULL;
+	settings->PinPadIsPresent = FALSE;
 	return settings;
 out_fail:
 	free(settings->HomePath);
@@ -1106,6 +1112,28 @@ void freerdp_settings_free(rdpSettings* settings)
 	freerdp_static_channel_collection_free(settings);
 	freerdp_dynamic_channel_collection_free(settings);
 	free(settings->SettingsModified);
+	free(settings->SmartcardReaderName);
+	free(settings->Pkcs11Module);
+
+	if (settings->Pin)
+	{
+		if (memset_s(settings->Pin, 4, 0, 4))
+			memset(settings->Pin, 0, 4);
+
+		free(settings->Pin);
+	}
+
+	free(settings->CardName);
+	free(settings->ReaderName);
+	free(settings->ContainerName);
+	free(settings->CspName);
+	free(settings->UserHint);
+	free(settings->UserPrincipalName);
+	free(settings->IdCertificate);
+	free(settings->PkinitIdentity);
+	free(settings->PkinitAnchors);
+	free(settings->SlotID);
+	free(settings->TokenLabel);
 	free(settings);
 }
 

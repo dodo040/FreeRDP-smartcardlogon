@@ -1131,7 +1131,7 @@ static BOOL xf_pre_connect(freerdp* instance)
 	if (!freerdp_client_load_addins(channels, instance->settings))
 		return FALSE;
 
-	if (!settings->Username && !settings->CredentialsFromStdin)
+	if (!settings->Username && !settings->CredentialsFromStdin && !settings->SmartcardLogon)
 	{
 		char* login_name = getlogin();
 
@@ -1278,7 +1278,6 @@ static BOOL xf_post_connect(freerdp* instance)
 	update->SetKeyboardIndicators = xf_keyboard_set_indicators;
 	update->SetKeyboardImeStatus = xf_keyboard_set_ime_status;
 
-
 	if (!(xfc->clipboard = xf_clipboard_new(xfc)))
 		return FALSE;
 
@@ -1286,7 +1285,6 @@ static BOOL xf_post_connect(freerdp* instance)
 	e.width = settings->DesktopWidth;
 	e.height = settings->DesktopHeight;
 	PubSub_OnResizeWindow(context->pubSub, xfc, &e);
-
 	return TRUE;
 }
 
@@ -1315,10 +1313,9 @@ static void xf_post_disconnect(freerdp* instance)
 static int xf_logon_error_info(freerdp* instance, UINT32 data, UINT32 type)
 {
 	xfContext* xfc = (xfContext*) instance->context;
-	const char *str_data = freerdp_get_logon_error_info_data(data);
-	const char *str_type = freerdp_get_logon_error_info_type(type);
+	const char* str_data = freerdp_get_logon_error_info_data(data);
+	const char* str_type = freerdp_get_logon_error_info_type(type);
 	WLog_INFO(TAG, "Logon Error Info %s [%s]", str_data, str_type);
-
 	xf_rail_disable_remoteapp_mode(xfc);
 	return 1;
 }

@@ -21,7 +21,7 @@ set(MODULE_PREFIX "FREERDP_CORE")
 freerdp_definition_add(-DEXT_PATH="${FREERDP_EXTENSION_PATH}")
 
 freerdp_include_directory_add(${OPENSSL_INCLUDE_DIR})
-freerdp_include_directory_add(${KRB5_INCLUDE_DIRS})
+freerdp_include_directory_add(${GSS_INCLUDE_DIR})
 
 set(${MODULE_PREFIX}_GATEWAY_DIR "gateway")
 
@@ -48,6 +48,26 @@ set(${MODULE_PREFIX}_GATEWAY_SRCS
 	${${MODULE_PREFIX}_GATEWAY_DIR}/http.h
 	${${MODULE_PREFIX}_GATEWAY_DIR}/ncacn_http.c
 	${${MODULE_PREFIX}_GATEWAY_DIR}/ncacn_http.h)
+
+if(PKCS11H_FOUND AND GSS_FOUND)
+	set(${MODULE_PREFIX}_PKINIT_DIR "pkinit")
+	set(${MODULE_PREFIX}_PKINIT_MIT_DIR "pkinit/MIT")
+	set(${MODULE_PREFIX}_PKINIT_HEIMDAL_DIR "pkinit/Heimdal")
+	set(${MODULE_PREFIX}_PKINIT_SRCS
+		${${MODULE_PREFIX}_PKINIT_DIR}/pkinit.h)
+	if(${GSS_FLAVOUR} STREQUAL "MIT")
+		set(${${MODULE_PREFIX}_PKINIT_MIT_DIR}_PKINIT_SRCS
+			${${MODULE_PREFIX}_PKINIT_MIT_DIR}/pkinit.h
+			${${MODULE_PREFIX}_PKINIT_MIT_DIR}/pkinit.c)
+		set(${MODULE_PREFIX}_PKINIT_SRCS ${${MODULE_PREFIX}_PKINIT_SRCS} ${${${MODULE_PREFIX}_PKINIT_MIT_DIR}_PKINIT_SRCS} )
+	endif()
+	if(${GSS_FLAVOUR} STREQUAL "Heimdal")
+		set(${${MODULE_PREFIX}_PKINIT_HEIMDAL_DIR}_PKINIT_SRCS
+			${${MODULE_PREFIX}_PKINIT_HEIMDAL_DIR}/pkinit.h
+			${${MODULE_PREFIX}_PKINIT_HEIMDAL_DIR}/pkinit.c)
+		set(${MODULE_PREFIX}_PKINIT_SRCS ${${MODULE_PREFIX}_PKINIT_SRCS} ${${${MODULE_PREFIX}_PKINIT_HEIMDAL_DIR}_PKINIT_SRCS})
+	endif()
+endif()
 
 set(${MODULE_PREFIX}_SRCS
 	bulk.c
@@ -128,9 +148,14 @@ set(${MODULE_PREFIX}_SRCS
 	listener.c
 	listener.h
 	peer.c
-	peer.h)
+	peer.h
+	smartcardlogon.h
+	smartcardlogon.c
+	x509.h
+	x509.c
+	)
 
-set(${MODULE_PREFIX}_SRCS ${${MODULE_PREFIX}_SRCS} ${${MODULE_PREFIX}_GATEWAY_SRCS})
+set(${MODULE_PREFIX}_SRCS ${${MODULE_PREFIX}_SRCS} ${${MODULE_PREFIX}_GATEWAY_SRCS} ${${MODULE_PREFIX}_PKINIT_SRCS} )
 
 freerdp_module_add(${${MODULE_PREFIX}_SRCS})
 
@@ -141,9 +166,11 @@ endif()
 
 freerdp_library_add(${OPENSSL_LIBRARIES})
 
-if (WITH_KRB5)
-	freerdp_library_add(${KRB5_LIBRARIES})
-endif(WITH_KRB5)
+if(WITH_GSSAPI)
+	freerdp_library_add(${GSS_LIBRARIES})
+endif()
+
+freerdp_library_add(dl)
 
 if(BUILD_TESTING)
 	add_subdirectory(test)

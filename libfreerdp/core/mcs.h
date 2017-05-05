@@ -123,7 +123,7 @@ typedef struct
 	UINT32 maxHeight;
 	UINT32 maxMCSPDUsize;
 	UINT32 protocolVersion;
-} DomainParameters;
+} DomainParametersMCS;
 
 struct rdp_mcs_channel
 {
@@ -144,10 +144,10 @@ struct rdp_mcs
 	UINT16 baseChannelId;
 	UINT16 messageChannelId;
 
-	DomainParameters domainParameters;
-	DomainParameters targetParameters;
-	DomainParameters minimumParameters;
-	DomainParameters maximumParameters;
+	DomainParametersMCS domainParameters;
+	DomainParametersMCS targetParameters;
+	DomainParametersMCS minimumParameters;
+	DomainParametersMCS maximumParameters;
 
 	BOOL userChannelJoined;
 	BOOL globalChannelJoined;
@@ -163,9 +163,9 @@ struct rdp_mcs
 #define MCS_TYPE_CONNECT_INITIAL		0x65
 #define MCS_TYPE_CONNECT_RESPONSE		0x66
 
-FREERDP_LOCAL BOOL mcs_merge_domain_parameters(DomainParameters*
-        targetParameters, DomainParameters* minimumParameters,
-        DomainParameters* maximumParameters, DomainParameters* pOutParameters);
+FREERDP_LOCAL BOOL mcs_merge_domain_parameters(DomainParametersMCS*
+        targetParameters, DomainParametersMCS* minimumParameters,
+        DomainParametersMCS* maximumParameters, DomainParametersMCS* pOutParameters);
 
 FREERDP_LOCAL BOOL mcs_write_connect_initial(wStream* s, rdpMcs* mcs,
         wStream* userData);
